@@ -1,0 +1,81 @@
+# Continue.dev Configuration for Ar-Pong Project
+# Using Ollama with Qwen3.5:9b model
+
+ollama:
+  baseUrl: http://localhost:11434
+  defaultModel: qwen3.5:9b  # Modelo específico Qwen3.5 9B parameters
+
+# Custom commands for this project
+customCommands:
+  - name: implement-physics-phase
+    description: Implement next physics engine phase from implementation-plan.md
+    completion: |
+      Implement the next phase of the physics engine based on `implementation-plan.md`.
+      
+      Review current state by reading the relevant files and checking which phases are 
+      complete vs pending in implementation-plan.md.
+      
+      Focus on separating logic from rendering per the Engine Pattern:
+        - frontend/src/physics/engine.ts: Physics logic only
+        - frontend/src/canvas/canvas.ts: Rendering only
+      
+      Next action: Update engine.ts with new physics, update canvas.ts to remove logic.
+
+  - name: separate-rendering-logic
+    description: Move all physics/logic out of canvas into engine.ts
+    completion: |
+      Review the file(s) being modified and identify any physics/logic code in:
+        - frontend/src/canvas/canvas.ts (remove this)
+        - Any other mixed files
+      
+      Move to appropriate files:
+        - frontend/src/physics/engine.ts or frontend/src/helpers/engine.ts
+      
+      Ensure canvas.ts ONLY contains Canvas 2D API calls (drawRect, drawLine, etc.).
+
+  - name: check-physics-phase
+    description: Review current implementation progress against phases
+    completion: |
+      Check implementation-plan.md for completed (✅) and pending (⏳) phases.
+      
+      For each phase, note what code needs to be implemented.
+      
+      Next action: Confirm current state matches plan, then outline steps for next phase.
+
+# System prompt aware of project architecture
+systemPrompt: |
+  You are working on the Ar-Pong game project at Y:/code/ar-pong/.
+  
+  ARCHITECTURE:
+  - Frontend: React + TypeScript + Vite in frontend/ folder
+  - Physics Engine: Separate logic from rendering (Engine Pattern)
+  - State: Managed by physics engine, rendered by canvas layer
+  
+  FILES STRUCTURE:
+  - frontend/src/physics/engine.ts: Physics logic, movement, collisions
+  - frontend/src/canvas/canvas.ts: Rendering only (Canvas 2D API calls)
+  - implementation-plan.md: Contains the 4-phase implementation roadmap
+  
+  GOAL:
+  Separate concerns so we can later add a multiplayer backend. Keep physics engine pure and canvas layer dumb (rendering-only).
+  
+  IMPORTANT RULES:
+  1. Never mix physics/logic in canvas.ts - it's for rendering only
+  2. All state changes happen in engine.ts, not canvas.ts
+  3. Read implementation-plan.md before implementing any phase
+  4. Use types for BallState, PaddleState, GameState
+  5. Keep movements smooth and boundaries handled correctly
+  
+  PHASES:
+  ✅ Phase 1: Core movement & boundaries - ball moves, bounces off walls
+  ⏳ Phase 2: Paddle interaction collisions - ball-bounce calculations
+  ⏳ Phase 3: Mobile input integration - touch controls
+  ⏳ Phase 4: Optimization & networking prep for multiplayer
+  
+  When implementing phases, follow the Engine Pattern strictly.
+
+# Files to use as context
+context:
+  - Y:/code/ar-pong/implementation-plan.md
+  - Y:/code/ar-pong/frontend/src/canvas/*.ts
+  - Y:/code/ar-pong/frontend/src/helpers/*.ts

@@ -1,45 +1,28 @@
-// Paddle dimensions.
-export const PADDLE_WIDTH = 10
-export const PADDLE_HEIGHT = 100
+import { PADDLE_WIDTH, PADDLE_HEIGHT } from "../constants"
 
-// Draw the game frame. Left paddle follows orientation input, right paddle is centered.
-export const drawGame = (
-  canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  leftPaddleY: number,
-) => {
-  if (!canvasRef.current) return
-
-  const ctx = canvasRef.current.getContext("2d")
-  if (!ctx) return
-
-  const width = canvasRef.current.width
-  const height = canvasRef.current.height
-
-  // Clamp the left paddle inside the canvas bounds.
-  const leftY = Math.max(0, Math.min(leftPaddleY, height - PADDLE_HEIGHT))
-  const rightY = (height - PADDLE_HEIGHT) / 2
-
-  ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = "#2AA146"
-  ctx.fillRect(25, leftY, PADDLE_WIDTH, PADDLE_HEIGHT)
-  ctx.fillRect(width - 20 - PADDLE_WIDTH, rightY, PADDLE_WIDTH, PADDLE_HEIGHT)
-}
-
-// Clamp a value to a min/max range.
 export const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
 
-const getViewportSize = () => {
-  const viewport = window.visualViewport
+export const getViewportSize = (): { width: number; height: number } => {
+  const canvas = document.getElementById("canvas") as HTMLCanvasElement
+  if (!canvas) return { width: window.innerWidth, height: window.innerHeight }
   return {
-    width: viewport?.width ?? window.innerWidth,
-    height: viewport?.height ?? window.innerHeight,
+    width: canvas.clientWidth || window.innerWidth,
+    height: canvas.clientHeight || window.innerHeight,
+  }
+}
+
+export const getCanvasSize = (): { width: number; height: number } => {
+  const canvas = document.getElementById("canvas") as HTMLCanvasElement
+  if (!canvas) return { width: window.innerWidth, height: window.innerHeight }
+  return {
+    width: canvas.width || window.innerWidth,
+    height: canvas.height || window.innerHeight,
   }
 }
 
 export const resizeCanvas = (
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  paddingY: number,
 ) => {
   if (!canvasRef.current) return
 
@@ -49,7 +32,42 @@ export const resizeCanvas = (
   canvasRef.current.style.width = `${width}px`
   canvasRef.current.style.height = `${height}px`
   canvasRef.current.style.backgroundColor = "#2C2C2E"
+}
 
-  // Redraw the game with the left paddle at the top after resizing
-  drawGame(canvasRef, paddingY)
+export const drawGame = ({
+  gameState,
+  canvasRef,
+}: {
+  gameState: any
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+}) => {
+  if (!canvasRef.current) return
+
+  const canvas = canvasRef.current
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return
+
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const { ball } = gameState
+
+  ctx.beginPath()
+  ctx.arc(ball.xPosition + 8, ball.yPosition + 8, 8, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Draw left paddle
+  const leftPaddleY = gameState.paddles.left.yPosition || 0
+  ctx.fillStyle = "#4ade80"
+  ctx.fillRect(0, leftPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT)
+
+  // Keep the second paddle at the right edge until multiplayer input is added.
+  const rightPaddleY = canvas.height / 2 - PADDLE_HEIGHT / 2
+  ctx.fillStyle = "#4ade80"
+  ctx.fillRect(
+    Math.max(0, canvas.width - PADDLE_WIDTH),
+    rightPaddleY,
+    PADDLE_WIDTH,
+    PADDLE_HEIGHT,
+  )
 }
