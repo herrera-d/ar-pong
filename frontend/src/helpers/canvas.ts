@@ -60,13 +60,11 @@ export const drawGame = ({
   const leftPaddleY = gameState.paddles.left.yPosition || 0
   ctx.fillStyle = "#4ade80"
   ctx.fillRect(0, leftPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT)
-
-  // Keep the second paddle at the right edge until multiplayer input is added.
-  const rightPaddleY = canvas.height / 2 - PADDLE_HEIGHT / 2
+  console.log("right paddle y", gameState.paddles.right.yPosition)
   ctx.fillStyle = "#4ade80"
   ctx.fillRect(
     Math.max(0, canvas.width - PADDLE_WIDTH),
-    rightPaddleY,
+    gameState.paddles.right.yPosition,
     PADDLE_WIDTH,
     PADDLE_HEIGHT,
   )

@@ -5,8 +5,11 @@ import {
   PADDLE_WIDTH,
   PHYSICS_CONFIG,
 } from "../constants"
+import { updateCpuPaddle, randomCpuErrorOffset } from "./computer"
 
 export type GameState = {
+  // ...existing code...
+
   ball: {
     xPosition: number
     yPosition: number
@@ -16,6 +19,7 @@ export type GameState = {
   paddles: { left: { yPosition: number }; right: { yPosition: number } }
   score: { player1: number; player2: number }
   isGameOver: boolean
+  cpuErrorOffset: number
 }
 
 export const initialGameState: GameState = {
@@ -28,6 +32,7 @@ export const initialGameState: GameState = {
   paddles: { left: { yPosition: 0 }, right: { yPosition: 0 } },
   score: { player1: 0, player2: 0 },
   isGameOver: false,
+  cpuErrorOffset: 0,
 }
 
 export const updateGame = ({
@@ -48,6 +53,21 @@ export const updateGame = ({
       canvasHeight - PADDLE_HEIGHT,
       Math.max(0, input),
     )
+  }
+
+  if (ball.horizontalVelocity > 0) {
+    paddles.right.yPosition = updateCpuPaddle({
+      ball: {
+        xPosition: ball.xPosition,
+        yPosition: ball.yPosition,
+        verticalVelocity: ball.verticalVelocity,
+        horizontalVelocity: ball.horizontalVelocity,
+      },
+      paddleY: paddles.right.yPosition,
+      canvasWidth,
+      canvasHeight,
+      errorOffset: gameState.cpuErrorOffset,
+    })
   }
 
   // Update ball position using physics config for speed
@@ -88,11 +108,12 @@ export const updateGame = ({
   // A ball crossing either side ends the round.
   if (ball.xPosition + BALL_SIZE < 0 || ball.xPosition > canvasWidth) {
     gameState.isGameOver = true
+    gameState.cpuErrorOffset = randomCpuErrorOffset()
     return
   }
 
   // Right paddle collision
-  const rightPaddleY = canvasHeight / 2 - PADDLE_HEIGHT / 2
+  const rightPaddleY = paddles.right.yPosition
   if (
     ball.horizontalVelocity > 0 &&
     ball.xPosition + BALL_SIZE >= canvasWidth - PADDLE_WIDTH &&
