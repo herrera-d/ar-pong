@@ -1,98 +1,98 @@
-# Ar-Pong Game
+# AR Pong
 
-A web-based Pong game with smooth rendering and multiplayer capabilities, built on a modular architecture with React and TypeScript.
+A classic **Pong** game built with **React + TypeScript + Vite**, rendered on a full-viewport HTML5 `<canvas>`. It's designed as a **multiplayer** game, but as it's currently a work in progress (WIP), the left paddle is driven by a CPU AI for now.
 
-## 🚀 Project Overview
+> This is a monorepo managed with **npm workspaces**. The game lives in the `frontend/` workspace.
 
-This project is a responsive Pong game supporting local multiplayer (keyboard input) while online multiplayer features are currently in development. The goal is to provide a polished gaming experience across different devices with a clean, modular codebase.
+## How the Game Works
 
-## 🛠 Tech Stack
+### Game Loop (`frontend/src/App.tsx`)
 
-### Frontend
+- The game runs inside a `useEffect` that sets up event listeners and starts a `requestAnimationFrame` loop.
+- Each frame:
+  1. `updateGame` advances the physics (input → paddle → ball → collisions).
+  2. `drawGame` clears and redraws the canvas.
+  3. `requestAnimationFrame` schedules the next frame.
+- The effect also registers `resize` / `orientationchange` listeners (to keep the canvas full-viewport) and pointer listeners for input, and cleans everything up on unmount.
 
-- **React**: For the user interface and component architecture
-- **TypeScript**: To ensure type safety and better developer experience
-- **Vite**: For fast and optimized development and build environment
-- **Canvas API**: For high-performance 2D rendering of game elements
+### Player Input (WIP)
 
-### Backend (In Development)
+- Multiplayer input is **not implemented yet** — the left paddle is currently driven by the CPU AI.
+- The pointer listeners (`pointerdown` / `pointermove` / `pointerup`) and the `leftPaddleYRef` are still in place as scaffolding for the future player-controlled paddle.
 
-- **Node.js**: To handle server-side logic for online multiplayer
-- **WebSockets**: Will enable real-time, bi-directional communication between players
-- **Status**: Currently under development - local multiplayer works, online multiplayer in progress
+### Physics (`frontend/src/helpers/engine.ts`)
 
-## 📁 Project Structure
+- The whole game is described by a single `GameState` object (ball position/velocity, paddle positions, score, `isGameOver`, `cpuErrorOffset`).
+- The ball moves using a **normalized velocity vector** scaled by `PHYSICS_CONFIG.BALL.INITIAL_SPEED`.
+- **Left paddle collision:** the bounce angle depends on where the ball hits the paddle; speed is capped at `MAX_SPEED` and slightly increased by `BOUNCE_FACTOR_PADDLE` (1.05).
+- **Wall bounce:** top/bottom walls reflect the vertical velocity.
+- **Round end:** if the ball fully crosses either side, `isGameOver` is set to `true` and a new CPU error offset is rolled. _(Note: the score is drawn but never incremented, and the game freezes after the first point — there is no restart logic yet.)_
+- **Right paddle collision:** mirror of the left paddle logic.
+- **Speed clamp:** a final guard scales the velocity vector back down if it ever exceeds `MAX_SPEED` (prevents tunneling / runaway speed).
+
+### CPU AI (`frontend/src/helpers/computer.ts`)
+
+- Both paddles are driven by the CPU AI for now (multiplayer is WIP). The paddle logic is a **pure function** `updateCpuPaddle` that returns the next Y position.
+- It only chases the ball while it moves toward the CPU (`horizontalVelocity > 0`), otherwise drifts back to the vertical center.
+- It predicts the ball's Y at the moment it reaches the paddle (time-to-arrival), folding top/bottom wall bounces.
+- It reacts only within a `REACTION_DELAY` window, applies a stable aiming error (`randomCpuErrorOffset`), and interpolates smoothly toward the target capped at `MAX_SPEED` per frame.
+
+### Rendering (`frontend/src/helpers/canvas.ts`)
+
+- `resizeCanvas` keeps the canvas sized to the viewport (and sets a dark background `#2C2C2E`).
+- `drawGame` clears and redraws each frame:
+  - the **dashed center line** (classic Pong look),
+  - the **score** in a retro pixel font (_Press Start 2P_) at the top center,
+  - the **ball** as a filled circle,
+  - the **left paddle** at `x = 0`,
+  - the **right paddle** at `x = canvas.width - PADDLE_WIDTH`.
+
+## Tech Stack
+
+| Layer     | Technology                      |
+| --------- | ------------------------------- |
+| UI        | React 19 + TypeScript           |
+| Build     | Vite                            |
+| Rendering | HTML5 Canvas 2D API             |
+| Styling   | CSS (`App.css`) + inline styles |
+
+## Folder Structure
 
 ```
-.
-├── frontend/                    # Frontend React application
-│   ├── src/
-│   │   ├── components/          # React components (e.g., Scoreboard)
-│   │   ├── helpers/             # Core game logic and utilities
-│   │   │   ├── canvas.ts        # Rendering functions (drawGame, resizeCanvas)
-│   │   │   ├── engine.ts        # Game state management and physics update
-│   │   │   └── constants.ts     # Physics and configuration constants
-│   │   ├── assets/              # Static assets
-│   │   ├── App.css              # Application styles
-│   │   ├── App.tsx              # Main application component
-│   │   └── main.tsx             # Entry point
-├── package.json                 # Project dependencies and scripts
-└── README.md                    # This file
+ar-pong/
+├── frontend/                    # React + Vite game
+│   └── src/
+│       ├── App.tsx              # Main component: game loop, input, state
+│       ├── App.css              # Global styles
+│       ├── main.tsx             # React entry point
+│       ├── components/
+│       │   └── Scoreboard.tsx   # (unused — the score is drawn on canvas)
+│       ├── constants/
+│       │   └── index.ts         # Physics & paddle constants
+│       └── helpers/
+│           ├── canvas.ts        # Canvas sizing + drawing (field, score)
+│           ├── computer.ts      # CPU AI for the right paddle
+│           └── engine.ts        # Core game state + physics update
+├── implementation-plan.md       # Original engine implementation plan
+├── opencode.json                # OpenCode model config
+└── package.json                 # npm workspaces root
 ```
 
-### `frontend/src/helpers/canvas.ts`
+## How to Run
 
-Core rendering module containing:
+From the repository root:
 
-- **Rendering**: Functions to draw paddles and the ball using Canvas 2D API
-- **Resizing**: Logic to synchronize the canvas internal resolution with its CSS size
+```bash
+npm install
+npm run dev:frontend
+```
 
-### `frontend/src/helpers/engine.ts`
+Or from the `frontend/` folder directly:
 
-Game state management:
+```bash
+cd frontend
+npm install
+npm run dev
+```
 
-- Defines `GameState` type with ball, paddles, and score properties
-- Implements `updateGame` function for game logic updates (position calculations)
-- Provides `initialGameState` for game initialization
-
-### `frontend/src/helpers/constants.ts`
-
-Physics and configuration constants:
-
-- **BallConfig**: Speed limits, bounce factors
-- **PaddleConfig**: Movement speed, dimensions, collision properties  
-- **GameConfig**: Winning score, reset delays
-- **PhysicsConfig**: Combined physics configuration for all game entities
-
-## 🎮 Getting Started
-
-To run the project locally:
-
-1. Install dependencies:
-   ```bash
-   npm install
-   ```
-
-2. Start the development server:
-   ```bash
-   npm run dev
-   # or check package.json for available scripts
-   ```
-
-3. Open your browser to the localhost URL shown in the terminal (typically `http://localhost:5173`)
-
-## ⌨️ Controls
-
-- **Touch**: Drag on mobile/touch devices to control the paddle
-- **Keyboard**: Use arrow keys or WASD to move your paddle (local multiplayer support)
-
-## 📝 Current Features
-
-- Local multiplayer: Two players can play on the same device using keyboard inputs
-- Smooth 2D rendering with Canvas API
-- Responsive design for different screen sizes
-- Modular codebase with separate concerns (rendering, state, physics)
-
-**Paddle dimensions**: 50px wide × 20px tall  
-**Ball radius**: 8px (fixed size for consistent rendering, no deformation)  
-**Color theme**: Green (#2AA146) for paddles, dark background (#2C2C2E)
+Then open the local URL Vite prints (e.g. `http://localhost:5173`) and watch the two CPU paddles play against each other.

@@ -1,6 +1,5 @@
 import { useEffect, useRef } from "react"
 import "./App.css"
-import Scoreboard from "./components/Scoreboard"
 import { drawGame, resizeCanvas, clamp } from "./helpers/canvas"
 import { type GameState, initialGameState, updateGame } from "./helpers/engine"
 import { PHYSICS_CONFIG, PADDLE_HEIGHT } from "./constants"
@@ -97,7 +96,6 @@ const App = () => {
 
   return (
     <>
-      <Scoreboard />
       <canvas ref={canvasRef} id="canvas"></canvas>
     </>
   )
