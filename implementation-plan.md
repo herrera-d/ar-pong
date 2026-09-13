@@ -1,104 +1,66 @@
-# Implementation Plan: Pong Game Physics
+# Implementation Plan: Pong Physics & Engine
 
-This document outlines the physics engine implementation for the multiplayer Pong game. The goal is to create a responsive, predictable, and fun experience for both local and online play.
+This document outlines the plan for implementing a robust, decoupled physics engine for the Pong game. We will follow the **Engine Pattern** to separate game logic from rendering.
 
-## 1. Game Constants and Configuration
+## 🏗 Architecture Overview
+We will move away from mixed logic/rendering in the canvas helpers and move towards a pure physics engine.
+- **State**: Managed by the physics engine (ball position, velocity, paddle positions, scores).
+- **Logic**: `src/physics/engine.ts` handles all movement and collisions.
+- **Rendering**: `src/canvas/canvas.ts` only draws the state provided to it.
 
-We will define a set of constants to tune the "feel" of the game without modifying the core logic.
+## 🚀 Phases
 
-| Constant | Description | Default Value |
-| :--- | :--- | :--- |
-| `INITIAL_BALL_SPEED` | The starting velocity of the ball. | `5` |
-| `MAX_BALL_SPEED` | The maximum speed a ball can reach. | `15` |
-| `PADDLE_SPEED` | The maximum speed a paddle can move. | `8` |
-| `BALL_BOUNCE_FACTOR` | Multiplier applied to velocity when hitting a wall (vertical). | `1` |
-| `BALL_BOUNCE_FACTOR_PADDLE` | Multiplier when hitting a paddle (allows for speed variation). | `1.1` |
-| `FRICTION` | Slight reduction in speed over time (optional). | `0.999` |
-
-## 2. Ball Mechanics
-
-The ball is the primary moving object. Its state will be managed by its position (`x`, `y`) and its velocity vector (`vx`, `vy`).
-
-### Movement
-In every frame, the ball's position is updated based on its velocity:
-`position.x += velocity.x`
-`position.y += velocity.y`
-
-### Wall Collisions
-- **Top/Bottom Walls**: When the ball hits the top or bottom edge, the vertical velocity is inverted.
-  - *Example*: If `ball.y` exceeds the canvas height, `velocity.y = -velocity.y * BALL_BOUNCE_FACTOR`.
-- **Side Walls (Scoring)**: When the ball hits the left or right edge, a point is awarded, and the ball is reset.
-
-### Paddle Collisions
-Collision detection between the ball and a paddle will be treated as an AABB (Axis-Aligned Bounding Box) intersection.
-
-**Example Logic:**
-```typescript
-function resolvePaddleCollision(ball, paddle) {
-  if (isIntersecting(ball, paddle)) {
-    // Invert horizontal velocity
-    ball.vx *= -1;
+### Phase 1: Core Movement & Boundaries
+Implement the basic movement of the ball and collision with the walls.
+- **Ball State**: `{ x, y, vx, vy }`
+- **Update Logic**:
+  - `x += vx`
+  - `y += vy`
+  - Check if `y` hits top or bottom boundaries -> reverse `vy`.
+- **Example**:
+  ```typescript
+  // engine.ts
+  function updateBall(ball: BallState) {
+    ball.x += ball.vx;
+    ball.y += ball.vy;
     
-    // Add "spin" or "angle" based on where it hits the paddle
-    // If it hits the edge of the paddle, it should fly off at a sharper angle
-    const hitPoint = (ball.y - (paddle.y + paddle.height / 2)) / (paddle.height / 2);
-    ball.vy = hitPoint * MAX_BALL_SPEED;
-
-    // Increase speed slightly
-    ball.vx *= BALL_BOUNCE_FACTOR_PADDLE;
+    if (ball.y <= 0 || ball.y >= height) {
+      ball.vy *= -1;
+    }
   }
-}
-```
-
-## 3. Paddle Mechanics
-
-Paddles move along the Y-axis. Their movement should be constrained by the canvas boundaries and their own dimensions.
-
-### Movement Logic
-The paddle position is updated based on user input (pointer/keyboard). To prevent "teleporting", we use a velocity-based movement with clamping.
-
-**Example Logic:**
-```typescript
-function updatePaddle(paddle, direction) {
-  const speed = direction > 0 ? PADDLE_SPEED : -PADDLE_SPEED;
-  
-  // New position calculation
-  let newY = paddle.y + speed;
-
-  // Boundary Clamping
-  if (newY < 0) newY = 0;
-  if (newY + paddle.height > canvas.height) newY = canvas.height - paddle.height;
-
-  paddle.y = newY;
-}
-```
-
-## 4. Scoring and Reset
-
-When the ball passes the boundary of a player:
-1. Increment the opponent's score.
-2. Reset the ball to the center of the canvas.
-3. Invert the ball's initial direction (so the person who just lost serves).
-
-**Reset Sequence:**
-1. `ball.x = canvas.width / 2`
-2. `ball.y = canvas.height / 2`
-3. `ball.vx = (initialSpeed * Math.random() > 0.5 ? 1 : -1)`
-4. `ball.vy = (initialSpeed * Math.random() > 0.5 ? 1 : -1)`
-
-## 5. Implementation Phases
-
-### Phase 1: Basic Movement & Walls
-- Implement ball movement in `canvas.ts`.
-- Implement top/bottom wall bouncing.
-- Implement scoring when ball hits side boundaries.
+  ```
 
 ### Phase 2: Paddle Interaction
-- Implement paddle movement logic.
-- Implement AABB collision detection between ball and paddles.
-- Implement variable bounce angles based on hit position.
+Implement collisions between the ball and the paddles.
+- **Collision Detection**: Check if the ball's bounding box overlaps with the paddle's bounding box.
+- **Reflection**: Reverse `vx` and apply `BOUNCE_FACTOR_PADDLE`.
+- **Angle Variation**: Calculate the bounce angle based on the distance from the center of the paddle.
+- **Example**:
+  ```typescript
+  // engine.ts
+  function handlePaddleCollision(ball: BallState, paddle: PaddleState) {
+    if (checkCollision(ball, paddle)) {
+      ball.vx *= -1 * BOUNCE_FACTOR_PADDLE;
+      // Add "spin" based on hit location
+      const relativeHitPoint = (ball.y - paddle.y) / paddle.height;
+      ball.vy += (relativeHitPoint - 0.5) * MAX_SPIN;
+    }
+  }
+  ```
 
-### Phase 3: Polish & Optimization
-- Implement speed caps to prevent the ball from becoming unplayable.
-- Add "friction" or "drag" if necessary for gameplay feel.
-- Integrate with the `useCanvasResize` hook to ensure physics coordinates match CSS dimensions.
+### Phase 3: Mobile & Input Integration
+Adapt the input handling for touch devices.
+- **Input Mapping**: Map touch coordinates to paddle Y positions.
+- **Smoothness**: Use interpolation or velocity to make paddle movement feel fluid on mobile.
+- **Drag and Drop**: The paddle should follow the user's touch point on the Y-axis.
+
+### Phase 4: Optimization & Networking
+- Implement `MAX_BALL_SPEED` to ensure the game remains playable.
+- Prepare the state for synchronization (serialization of `BallState` and `PaddleState`).
+
+## 🛠 Constants & Configuration
+We will use a centralized constants file: `src/physics/constants.ts`.
+- `BOUNCE_FACTOR_PADDLE`: 1.05 (slight speed increase on hit).
+- `BOUNCE_FACTOR_WALL`: 1.0 (perfect reflection).
+- `INITIAL_BALL_SPEED`: Base speed of the ball.
+- `MAX_BALL_SPEED`: Speed cap.

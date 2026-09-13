@@ -1,45 +1,28 @@
-// Paddle dimensions.
-export const PADDLE_WIDTH = 10
-export const PADDLE_HEIGHT = 100
+import { PADDLE_WIDTH, PADDLE_HEIGHT } from "../constants"
 
-// Draw the game frame. Left paddle follows orientation input, right paddle is centered.
-export const drawGame = (
-  canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  leftPaddleY: number,
-) => {
-  if (!canvasRef.current) return
-
-  const ctx = canvasRef.current.getContext("2d")
-  if (!ctx) return
-
-  const width = canvasRef.current.width
-  const height = canvasRef.current.height
-
-  // Clamp the left paddle inside the canvas bounds.
-  const leftY = Math.max(0, Math.min(leftPaddleY, height - PADDLE_HEIGHT))
-  const rightY = (height - PADDLE_HEIGHT) / 2
-
-  ctx.clearRect(0, 0, width, height)
-  ctx.fillStyle = "#2AA146"
-  ctx.fillRect(25, leftY, PADDLE_WIDTH, PADDLE_HEIGHT)
-  ctx.fillRect(width - 20 - PADDLE_WIDTH, rightY, PADDLE_WIDTH, PADDLE_HEIGHT)
-}
-
-// Clamp a value to a min/max range.
 export const clamp = (value: number, min: number, max: number) =>
   Math.min(max, Math.max(min, value))
 
-const getViewportSize = () => {
-  const viewport = window.visualViewport
+export const getViewportSize = (): { width: number; height: number } => {
+  const canvas = document.getElementById("canvas") as HTMLCanvasElement
+  if (!canvas) return { width: window.innerWidth, height: window.innerHeight }
   return {
-    width: viewport?.width ?? window.innerWidth,
-    height: viewport?.height ?? window.innerHeight,
+    width: canvas.clientWidth || window.innerWidth,
+    height: canvas.clientHeight || window.innerHeight,
+  }
+}
+
+export const getCanvasSize = (): { width: number; height: number } => {
+  const canvas = document.getElementById("canvas") as HTMLCanvasElement
+  if (!canvas) return { width: window.innerWidth, height: window.innerHeight }
+  return {
+    width: canvas.width || window.innerWidth,
+    height: canvas.height || window.innerHeight,
   }
 }
 
 export const resizeCanvas = (
   canvasRef: React.RefObject<HTMLCanvasElement | null>,
-  paddingY: number,
 ) => {
   if (!canvasRef.current) return
 
@@ -49,7 +32,80 @@ export const resizeCanvas = (
   canvasRef.current.style.width = `${width}px`
   canvasRef.current.style.height = `${height}px`
   canvasRef.current.style.backgroundColor = "#2C2C2E"
+}
 
-  // Redraw the game with the left paddle at the top after resizing
-  drawGame(canvasRef, paddingY)
+const RETRO_GREEN = "#4ade80"
+
+/** Classic Pong dashed line down the middle of the field. */
+const drawCenterLine = (
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  canvasHeight: number,
+) => {
+  ctx.strokeStyle = RETRO_GREEN
+  ctx.lineWidth = 2
+  ctx.setLineDash([12, 12])
+  ctx.beginPath()
+  ctx.moveTo(canvasWidth / 2, 0)
+  ctx.lineTo(canvasWidth / 2, canvasHeight)
+  ctx.stroke()
+  ctx.setLineDash([])
+}
+
+/** Retro pixel score drawn directly on the canvas, top center. */
+const drawScore = (
+  ctx: CanvasRenderingContext2D,
+  canvasWidth: number,
+  score: { player1: number; player2: number },
+) => {
+  ctx.fillStyle = RETRO_GREEN
+  ctx.font = '16px "Press Start 2P", "Courier New", monospace'
+  ctx.textAlign = "center"
+  ctx.textBaseline = "top"
+
+  const topPadding = 16
+  const gap = 90
+  const centerX = canvasWidth / 2
+
+  ctx.fillText(String(score.player1), centerX - gap, topPadding)
+  ctx.fillText(String(score.player2), centerX + gap, topPadding)
+}
+
+export const drawGame = ({
+  gameState,
+  canvasRef,
+}: {
+  gameState: any
+  canvasRef: React.RefObject<HTMLCanvasElement | null>
+}) => {
+  if (!canvasRef.current) return
+
+  const canvas = canvasRef.current
+  const ctx = canvas.getContext("2d")
+  if (!ctx) return
+
+  // Clear canvas
+  ctx.clearRect(0, 0, canvas.width, canvas.height)
+
+  const { ball } = gameState
+
+  drawCenterLine(ctx, canvas.width, canvas.height)
+  drawScore(ctx, canvas.width, gameState.score)
+
+  ctx.fillStyle = RETRO_GREEN
+  ctx.beginPath()
+  ctx.arc(ball.xPosition + 8, ball.yPosition + 8, 8, 0, Math.PI * 2)
+  ctx.fill()
+
+  // Draw left paddle
+  const leftPaddleY = gameState.paddles.left.yPosition || 0
+  ctx.fillStyle = RETRO_GREEN
+  ctx.fillRect(0, leftPaddleY, PADDLE_WIDTH, PADDLE_HEIGHT)
+  ctx.fillStyle = RETRO_GREEN
+  ctx.fillRect(
+    Math.max(0, canvas.width - PADDLE_WIDTH),
+    gameState.paddles.right.yPosition,
+    PADDLE_WIDTH,
+    PADDLE_HEIGHT,
+  )
 }

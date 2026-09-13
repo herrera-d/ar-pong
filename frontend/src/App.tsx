@@ -1,78 +1,101 @@
 import { useEffect, useRef } from "react"
 import "./App.css"
-import Scoreboard from "./components/Scoreboard"
-import { drawGame, resizeCanvas } from "./helpers/canvas"
-import { onPointerDown, onPointerMove, onPointerUp } from "./helpers/userInput"
-
-const initializeGame = ({
-  canvasRef,
-  leftPaddleYRef,
-}: {
-  canvasRef: React.RefObject<HTMLCanvasElement | null>
-  leftPaddleYRef: React.RefObject<number>
-}) => {
-  if (canvasRef.current) {
-    const context = canvasRef.current.getContext("2d")
-    const canvas = canvasRef.current
-
-    // Clear the canvas before drawing the game
-    context?.clearRect(0, 0, canvas.width, canvas.height)
-
-    drawGame(canvasRef, leftPaddleYRef.current)
-  }
-}
+import { drawGame, resizeCanvas, clamp } from "./helpers/canvas"
+import { type GameState, initialGameState, updateGame } from "./helpers/engine"
+import { PHYSICS_CONFIG, PADDLE_HEIGHT } from "./constants"
 
 const App = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null)
   const leftPaddleYRef = useRef(0)
-  const draggingRef = useRef(false)
+  const isDraggingRef = useRef(false)
+
+  // Create a new gameState with random starting velocity
+  const createInitialGameState = (): GameState => ({
+    ...initialGameState,
+    ball: {
+      xPosition: 0,
+      yPosition: 50 + PADDLE_HEIGHT / 2,
+      verticalVelocity:
+        (Math.random() > 0.5 ? 1 : -1) * PHYSICS_CONFIG.BALL.INITIAL_SPEED,
+      horizontalVelocity:
+        (Math.random() > 0.5 ? 1 : -1) * PHYSICS_CONFIG.BALL.INITIAL_SPEED,
+    },
+  })
+
+  const gameState: React.RefObject<GameState> = useRef(createInitialGameState())
 
   useEffect(() => {
-    initializeGame({ canvasRef, leftPaddleYRef })
-
     const handleResize = () => {
-      resizeCanvas(canvasRef, leftPaddleYRef.current)
+      resizeCanvas(canvasRef)
     }
 
-    const handleOnPointerDown = (ev: PointerEvent) => {
-      onPointerDown(ev, { canvasRef, leftPaddleYRef, draggingRef })
+    const handleUserInput = (ev: PointerEvent) => {
+      const canvas = canvasRef.current
+      if (!canvas) return
+
+      const canvasBounds = canvas.getBoundingClientRect()
+      leftPaddleYRef.current = clamp(
+        ev.clientY - canvasBounds.top - PADDLE_HEIGHT / 2,
+        0,
+        canvas.height - PADDLE_HEIGHT,
+      )
     }
 
-    const handleOnPointerUp = (ev: PointerEvent) => {
-      onPointerUp(ev, { canvasRef, leftPaddleYRef, draggingRef })
+    const handlePointerDown = (ev: PointerEvent) => {
+      isDraggingRef.current = true
+      handleUserInput(ev)
     }
 
-    const handleOnPointerMove = (ev: PointerEvent) => {
-      onPointerMove(ev, { canvasRef, leftPaddleYRef, draggingRef })
+    const handlePointerMove = (ev: PointerEvent) => {
+      if (isDraggingRef.current) handleUserInput(ev)
+    }
+
+    const handlePointerUp = () => {
+      isDraggingRef.current = false
     }
 
     window.addEventListener("resize", handleResize)
     window.addEventListener("orientationchange", handleResize)
+    handleResize()
 
-    if (canvasRef.current) {
-      canvasRef.current.addEventListener("pointerdown", handleOnPointerDown)
-      window.addEventListener("pointermove", handleOnPointerMove)
-      window.addEventListener("pointerup", handleOnPointerUp)
+    const canvasElement = canvasRef.current
+    if (canvasElement) {
+      canvasElement.addEventListener("pointerdown", handlePointerDown)
+      window.addEventListener("pointermove", handlePointerMove)
+      window.addEventListener("pointerup", handlePointerUp)
     }
 
+    let animationFrame: number
+    const animate = () => {
+      updateGame({
+        gameState: gameState.current,
+        input: leftPaddleYRef.current,
+      })
+      drawGame({
+        gameState: gameState.current,
+        canvasRef: canvasRef,
+      })
+
+      animationFrame = requestAnimationFrame(animate)
+    }
+    animationFrame = requestAnimationFrame(animate)
+
     return () => {
+      cancelAnimationFrame(animationFrame)
       window.removeEventListener("resize", handleResize)
       window.removeEventListener("orientationchange", handleResize)
-
-      if (canvasRef.current) {
-        canvasRef.current.removeEventListener(
-          "pointerdown",
-          handleOnPointerDown,
-        )
-        window.removeEventListener("pointermove", handleOnPointerMove)
-        window.removeEventListener("pointerup", handleOnPointerUp)
+      if (canvasElement) {
+        canvasElement.removeEventListener("pointerdown", handlePointerDown)
+        window.removeEventListener("pointermove", handlePointerMove)
+        window.removeEventListener("pointerup", handlePointerUp)
       }
     }
   }, [])
 
+  // Initialize and start the game loop only when canvas is available in DOM
+
   return (
     <>
-      <Scoreboard />
       <canvas ref={canvasRef} id="canvas"></canvas>
     </>
   )
